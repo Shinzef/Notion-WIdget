@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Modern Notion Clock</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: transparent; /* transparent so only the widget shows in Notion */
+      font-family: "Inter", "Helvetica Neue", sans-serif;
+    }
+
+    .clock {
+      background: #2ecc71; /* modern green */
+      color: white;
+      padding: 20px 40px;
+      border-radius: 20px;
+      font-size: 1.4em;
+      font-weight: 500;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .clock:hover {
+      transform: scale(1.03);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+  <div class="clock" id="clock"></div>
+
+  <script>
+    function updateClock() {
+      const now = new Date();
+      const options = { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' };
+      document.getElementById("clock").textContent =
+        now.toLocaleDateString('en-US', options);
+    }
+    updateClock();
+    setInterval(updateClock, 60 * 1000); // update every minute
+  </script>
+</body>
+</html>
