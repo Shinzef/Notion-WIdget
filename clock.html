@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Modern Notion Clock</title>
+  <title>Compact Clock</title>
   <style>
     body {
       display: flex;
@@ -10,25 +10,20 @@
       align-items: center;
       height: 100vh;
       margin: 0;
-      background: transparent; /* transparent so only the widget shows in Notion */
+      background: transparent;
       font-family: "Inter", "Helvetica Neue", sans-serif;
     }
 
     .clock {
-      background: #2ecc71; /* modern green */
+      background: #2ecc71;
       color: white;
-      padding: 20px 40px;
-      border-radius: 20px;
-      font-size: 1.4em;
+      padding: 10px 20px; /* smaller padding */
+      border-radius: 12px; /* less round for compactness */
+      font-size: 1em; /* smaller font */
       font-weight: 500;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       text-align: center;
-      transition: all 0.3s ease;
-    }
-
-    .clock:hover {
-      transform: scale(1.03);
-      box-shadow: 0 10px 24px rgba(0,0,0,0.3);
+      white-space: nowrap; /* keep it in one line */
     }
   </style>
 </head>
@@ -43,7 +38,7 @@
         now.toLocaleDateString('en-US', options);
     }
     updateClock();
-    setInterval(updateClock, 60 * 1000); // update every minute
+    setInterval(updateClock, 60 * 1000);
   </script>
 </body>
 </html>
