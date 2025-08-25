@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Countdown Widget</title>
+    <style>
+        /* --- Notion-Inspired Variables --- */
+        :root {
+            --bg-color: #191919;
+            --widget-bg: #2F2F2F;
+            --input-bg: #373737;
+            --border-color: #3F3F3F;
+            --primary-text: #E0E0E0;
+            --secondary-text: #9B9A97;
+            --accent-color: #2eaadc;
+            --accent-hover: #50bfe6;
+        }
+
+        /* --- Base Styles --- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: var(--bg-color);
+            color: var(--primary-text);
+        }
+
+        /* --- Widget Container --- */
+        .countdown-widget {
+            background: var(--widget-bg);
+            padding: 1.5rem 2rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            width: 320px;
+            text-align: center;
+        }
+
+        .widget-header {
+            margin-bottom: 1.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--secondary-text);
+        }
+
+        /* --- Setup View --- */
+        .setup-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.8rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .setup-grid label {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            font-size: 0.8rem;
+            color: var(--secondary-text);
+        }
+
+        select {
+            width: 100%;
+            padding: 0.6rem;
+            margin-top: 0.25rem;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            font-size: 0.9rem;
+            background: var(--input-bg);
+            color: var(--primary-text);
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px rgba(46, 170, 220, 0.3);
+        }
+
+        /* --- Timer View --- */
+        .timer-display {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 1.5rem;
+        }
+
+        .time-unit {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .time-unit span:first-child {
+            font-size: 2.5rem;
+            font-weight: 600;
+            line-height: 1;
+            /* Prevents numbers from shifting layout */
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .time-unit span:last-child {
+            font-size: 0.75rem;
+            color: var(--secondary-text);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* --- Controls --- */
+        button {
+            width: 100%;
+            padding: 0.7rem;
+            border-radius: 6px;
+            border: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        #startBtn {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        #startBtn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        #resetBtn {
+            background: var(--input-bg);
+            color: var(--primary-text);
+        }
+        
+        #resetBtn:hover {
+            background: var(--border-color);
+        }
+        
+        #resetBtn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* --- Utility --- */
+        .hidden {
+            display: none !important;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="countdown-widget">
+        <div id="setupView">
+            <div class="widget-header">Set a Target Date</div>
+            <div class="setup-grid">
+                <label>Year <select id="year"></select></label>
+                <label>Month <select id="month"></select></label>
+                <label>Day <select id="day"></select></label>
+                <label>Hour <select id="hour"></select></label>
+            </div>
+            <button id="startBtn">Start Countdown</button>
+        </div>
+
+        <div id="timerView" class="hidden">
+            <div class="widget-header">Time Remaining</div>
+            <div class="timer-display">
+                <div class="time-unit">
+                    <span id="days">0</span>
+                    <span>Days</span>
+                </div>
+                <div class="time-unit">
+                    <span id="hours">0</span>
+                    <span>Hours</span>
+                </div>
+                <div class="time-unit">
+                    <span id="minutes">0</span>
+                    <span>Mins</span>
+                </div>
+                <div class="time-unit">
+                    <span id="seconds">0</span>
+                    <span>Secs</span>
+                </div>
+            </div>
+            <button id="resetBtn">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm4.186 14.186a8 8 0 1 1 0-8.372" fill-rule="evenodd" clip-rule="evenodd"></path><path d="M12 4.041V8.5h4.459L12 4.041z"></path></svg>
+                Reset
+            </button>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- DOM Elements ---
+        const selectors = {
+            year: document.getElementById('year'),
+            month: document.getElementById('month'),
+            day: document.getElementById('day'),
+            hour: document.getElementById('hour'),
+        };
+        const timerElements = {
+            days: document.getElementById('days'),
+            hours: document.getElementById('hours'),
+            minutes: document.getElementById('minutes'),
+            seconds: document.getElementById('seconds'),
+        };
+        const setupView = document.getElementById('setupView');
+        const timerView = document.getElementById('timerView');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // --- State ---
+        let countdownInterval;
+        let targetDate;
+        
+        // --- Functions ---
+
+        /**
+         * Populates the date/time select elements with options.
+         */
+        function populateSelectors() {
+            const now = new Date();
+            const currentYear = now.getFullYear();
+
+            // Years
+            for (let y = currentYear; y <= currentYear + 10; y++) {
+                selectors.year.add(new Option(y, y));
+            }
+
+            // Months
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            monthNames.forEach((name, i) => {
+                 selectors.month.add(new Option(name, i));
+            });
+
+            // Days
+            for (let d = 1; d <= 31; d++) {
+                selectors.day.add(new Option(d, d));
+            }
+
+            // Hours
+            for (let h = 0; h < 24; h++) {
+                const text = h.toString().padStart(2, '0');
+                selectors.hour.add(new Option(text, h));
+            }
+        }
+
+        /**
+         * Updates the timer display every second.
+         */
+        function updateCountdown() {
+            const now = new Date().getTime();
+            const diff = targetDate - now;
+
+            if (diff <= 0) {
+                clearInterval(countdownInterval);
+                timerElements.days.textContent = "0";
+                timerElements.hours.textContent = "0";
+                timerElements.minutes.textContent = "0";
+                timerElements.seconds.textContent = "0";
+                // Optionally show a "Time's Up!" message
+                document.querySelector('#timerView .widget-header').textContent = "Time's Up!";
+                return;
+            }
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            timerElements.days.textContent = days;
+            timerElements.hours.textContent = String(hours).padStart(2, '0');
+            timerElements.minutes.textContent = String(minutes).padStart(2, '0');
+            timerElements.seconds.textContent = String(seconds).padStart(2, '0');
+        }
+
+        /**
+         * Switches the view to show the running timer.
+         */
+        function showTimerView() {
+            setupView.classList.add('hidden');
+            timerView.classList.remove('hidden');
+            document.querySelector('#timerView .widget-header').textContent = "Time Remaining";
+
+            updateCountdown();
+            countdownInterval = setInterval(updateCountdown, 1000);
+        }
+
+        /**
+         * Switches the view back to the setup screen.
+         */
+        function showSetupView() {
+            timerView.classList.add('hidden');
+            setupView.classList.remove('hidden');
+        }
+
+        // --- Event Handlers ---
+        
+        function handleStart() {
+            const y = selectors.year.value;
+            const mo = selectors.month.value;
+            const d = selectors.day.value;
+            const h = selectors.hour.value;
+
+            targetDate = new Date(y, mo, d, h).getTime();
+            
+            // Validate date
+            if (isNaN(targetDate) || targetDate < new Date().getTime()) {
+                alert("Please select a future date and time.");
+                return;
+            }
+
+            localStorage.setItem("countdownTarget", targetDate);
+            showTimerView();
+        }
+
+        function handleReset() {
+            clearInterval(countdownInterval);
+            localStorage.removeItem("countdownTarget");
+            showSetupView();
+        }
+
+        // --- Initialization ---
+        
+        function init() {
+            populateSelectors();
+            startBtn.addEventListener('click', handleStart);
+            resetBtn.addEventListener('click', handleReset);
+            
+            const savedDate = localStorage.getItem("countdownTarget");
+            if (savedDate) {
+                targetDate = parseInt(savedDate, 10);
+                if (targetDate > new Date().getTime()) {
+                    showTimerView();
+                } else {
+                    // Saved date is in the past, so reset it.
+                    handleReset();
+                }
+            }
+        }
+        
+        init(); // Run the app
+    });
+    </script>
+</body>
+</html>
