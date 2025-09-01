@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Focus — Pomodoro + Clock</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#191919;              /* Notion gray */
+    --panel:#232323;            /* Darker panel for contrast */
+    --muted:#9aa3ad;
+    --accent1:#00d4ff;          /* Single accent color (was teal -> orange) */
+    --glass: rgba(255,255,255,0.03);
+    --card-radius:16px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%; margin:0; font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial; -webkit-font-smoothing:antialiased;}
+  body{
+    background:var(--bg);
+    color:#eef6ff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    padding:20px;
+  }
+
+  /* stage: single centered card */
+  .card {
+    width:100%;
+    max-width:920px;
+    border-radius:var(--card-radius);
+    background: var(--panel); /* NO GRADIENT */
+    padding:18px;
+    border:1px solid rgba(255,255,255,0.03);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    display:grid;
+    grid-template-rows: auto 1fr auto;
+    gap:14px;
+  }
+
+  /* top bar: clock left, weather right */
+  .topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .clock {
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .clock .label { font-size:11px; color:var(--muted); font-weight:700; letter-spacing:0.8px; }
+  .clock .time { font-weight:800; font-size:18px; letter-spacing:0.6px; }
+  .weather {
+    text-align:right;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .weather .loc { font-size:12px; color:var(--muted); font-weight:700; letter-spacing:0.6px; }
+  .weather .temp { font-weight:800; font-size:16px; }
+  .weather .cond { font-size:12px; color:var(--muted); }
+
+  /* center: ring + controls */
+  .center {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:24px;
+    padding:8px 12px;
+  }
+
+  .focus-area{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:12px;
+    width:100%;
+  }
+
+  /* ring */
+  .ring-wrap{
+    position:relative;
+    width:260px;
+    height:260px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  svg {
+    transform: rotate(-90deg);
+    width:260px;
+    height:260px;
+    display:block;
+    transition: opacity 400ms ease; /* ANIMATION for ring */
+  }
+  circle.bg { stroke: rgba(255,255,255,0.03); stroke-width:12; fill:transparent; }
+  circle.fg { stroke-width:12; stroke-linecap:round; fill:transparent; filter: drop-shadow(0 6px 14px rgba(0,0,0,0.5)); }
+  .center-inner{
+    position:absolute;
+    width:calc(260px - 44px);
+    height:calc(260px - 44px);
+    border-radius:999px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    background: rgba(0,0,0,0.2); /* NO GRADIENT */
+    border-radius:999px;
+  }
+  .time-digits{
+    font-weight:900;
+    font-size:40px;
+    cursor: pointer; /* Clickable digits */
+    transition: opacity 400ms ease;
+  }
+  .session-label{
+    margin-top:6px;
+    font-size:12px;
+    color:var(--muted);
+    letter-spacing:0.8px;
+    font-weight:700;
+  }
+
+  /* inputs (setup) */
+  .setup {
+    display:flex;
+    gap:10px;
+    align-items:center;
+    transition: all 360ms cubic-bezier(.16,.9,.2,1); /* ANIMATION */
+  }
+  .setup.hidden { opacity:0; transform: translateY(8px) scale(0.98); pointer-events:none; height:0; overflow:hidden; margin:0; }
+  .field{ display:flex; flex-direction:column; gap:6px; align-items:center; min-width:110px; }
+  .field label{ font-size:12px; color:var(--muted); font-weight:700; }
+  input[type=number]{ width:88px; text-align:center; background:transparent; border-radius:8px; padding:8px; border:1px solid rgba(255,255,255,0.04); color:inherit; outline:none; }
+  /* MODERN INPUT: Hide number input arrows */
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type=number] { -moz-appearance: textfield; }
+
+  /* controls */
+  .controls { display:flex; gap:12px; align-items:center; justify-content:center; margin-top:6px; }
+  #runningControls { display:none; gap:10px; align-items:center; } /* Correct spacing */
+  button { padding:10px 14px; border-radius:10px; font-weight:800; font-size:14px; border:1px solid rgba(255,255,255,0.05); background:transparent; color:inherit; cursor:pointer; backdrop-filter: blur(6px); }
+  button.primary { background: var(--accent1); color:#05040a; border:none; box-shadow: 0 12px 30px rgba(0,0,0,0.48); } /* NO GRADIENT */
+  button.ghost { background: transparent; border:1px solid rgba(255,255,255,0.04); }
+
+  /* view toggle: compact 3-way */
+  .view-toggle{ display:flex; gap:6px; align-items:center; margin-left: 12px; }
+  .toggle-btn{ padding:8px 10px; border-radius:8px; font-weight:700; font-size:12px; border:1px solid rgba(255,255,255,0.04); background:transparent; cursor:pointer; }
+  .toggle-btn.active{ background: rgba(255,255,255,0.03); }
+
+  /* small helpers */
+  .meta { font-size:12px; color:var(--muted); font-weight:700; letter-spacing:0.6px; }
+
+  /* subtle animations */
+  .pop { transform-origin:center; transition: transform 240ms cubic-bezier(.2,.9,.3,1); }
+  .pop:active { transform: scale(.98); }
+  .fade-in { animation: fadeIn 360ms ease both; }
+  @keyframes fadeIn { from {opacity:0; transform:translateY(6px) } to {opacity:1; transform:translateY(0)} }
+
+  /* running mode subtle border highlight */
+  .running .card {
+    border-color: rgba(0, 212, 255, 0.1); /* Subtle glow using accent color */
+    transition: border-color 400ms ease;
+  }
+
+  /* responsive */
+  @media (max-width:820px){
+    .ring-wrap{ width:200px; height:200px }
+    svg{ width:200px; height:200px }
+    .center-inner{ width:calc(200px - 40px); height:calc(200px - 40px); }
+    .time-digits{ font-size:34px }
+  }
+</style>
+</head>
+<body id="body-container">
+  <div class="card" id="card">
+    <div class="topbar">
+      <div class="clock" aria-live="polite">
+        <div class="label">LOCAL TIME</div>
+        <div class="time" id="clock">00:00:00</div>
+      </div>
+      <div class="weather" aria-live="polite">
+        <div class="loc" id="w-loc">—</div>
+        <div class="temp" id="w-temp">—°</div>
+        <div class="cond" id="w-cond">Loading weather…</div>
+      </div>
+    </div>
+
+    <div class="center">
+      <div class="focus-area" role="main" aria-label="Pomodoro focus area">
+        <div class="ring-wrap" id="ringWrap">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <defs>
+              <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0%" stop-color="var(--accent1)"/>
+                <stop offset="100%" stop-color="var(--accent1)"/> </linearGradient>
+            </defs>
+            <circle class="bg" cx="60" cy="60" r="50" />
+            <circle class="fg" id="fg" cx="60" cy="60" r="50" stroke="url(#g)" stroke-dasharray="314" stroke-dashoffset="314"/>
+          </svg>
+          <div class="center-inner" id="centerInner">
+            <div id="digits" class="time-digits">25:00</div>
+            <div id="sessionLabel" class="session-label">WORK</div>
+          </div>
+        </div>
+
+        <div class="setup fade-in" id="setup">
+          <div class="field">
+            <label for="work">Work (min)</label>
+            <input id="work" type="number" min="1" max="180" value="25">
+          </div>
+          <div class="field">
+            <label for="break">Break (min)</label>
+            <input id="break" type="number" min="1" max="60" value="5">
+          </div>
+        </div>
+
+        <div class="controls" id="controls">
+          <button id="start" class="primary pop">Start</button>
+          <div id="runningControls">
+            <button id="pause" class="ghost pop">Pause</button>
+            <button id="reset" class="ghost pop">Reset</button>
+            <button id="skip" class="ghost pop">Skip</button>
+          </div>
+
+          <div class="view-toggle">
+            <button class="toggle-btn active" data-view="both">Both</button>
+            <button class="toggle-btn" data-view="ring">Ring</button>
+            <button class="toggle-btn" data-view="digits">Digits</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="meta" id="meta">Press <kbd style="background:#0f1113;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.03);font-weight:800">Space</kbd> to Start/Pause</div>
+      <div class="meta" id="sessions">Sessions: 0</div>
+    </div>
+  </div>
+
+<script>
+/* ----------------------
+  Clock
+  ----------------------*/
+const clockEl = document.getElementById('clock');
+function tickClock(){ const n=new Date(); clockEl.textContent = n.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+tickClock(); setInterval(tickClock,1000);
+
+/* ----------------------
+  Weather (open-meteo)
+  ----------------------*/
+const wLoc = document.getElementById('w-loc');
+const wTemp = document.getElementById('w-temp');
+const wCond = document.getElementById('w-cond');
+const DEFAULT = {lat:14.5995, lon:120.9842, name:'Manila, PH'};
+
+function mapWeather(code){
+  const M = {0:['Clear','☀️'],1:['Mainly clear','🌤'],2:['Partly cloudy','⛅️'],3:['Overcast','☁️'],45:['Fog','🌫'],48:['Fog','🌫'],51:['Light drizzle','🌦'],53:['Drizzle','🌦'],55:['Dense drizzle','🌧'],61:['Light rain','🌧'],63:['Moderate rain','🌧'],65:['Heavy rain','⛈'],71:['Light snow','🌨'],73:['Snow','🌨'],80:['Showers','🌦'],81:['Showers','🌧'],95:['Thunder','⛈'] };
+  return M[code] || ['Unknown','🌡'];
+}
+
+async function getWeather(lat, lon, name=null){
+  try{
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`;
+    const r = await fetch(url);
+    const j = await r.json();
+    const c = j.current_weather;
+    if(!c) throw new Error('no data');
+    const [txt,emoji] = mapWeather(c.weathercode);
+    wLoc.textContent = name || (j.timezone || 'Local');
+    wTemp.textContent = `${Math.round(c.temperature)}°C ${emoji}`;
+    wCond.textContent = `${txt} • wind ${Math.round(c.windspeed)} km/h`;
+  }catch(e){
+    wLoc.textContent = DEFAULT.name;
+    wTemp.textContent = '—';
+    wCond.textContent = 'Weather unavailable';
+  }
+}
+
+if(navigator.geolocation){
+  navigator.geolocation.getCurrentPosition(p=> getWeather(p.coords.latitude, p.coords.longitude, 'Your location'), ()=> getWeather(DEFAULT.lat, DEFAULT.lon, DEFAULT.name), {timeout:5000});
+}else{ getWeather(DEFAULT.lat, DEFAULT.lon, DEFAULT.name); }
+
+/* ----------------------
+  Pomodoro core
+  ----------------------*/
+const workInput = document.getElementById('work');
+const breakInput = document.getElementById('break');
+const setupEl = document.getElementById('setup');
+const startBtn = document.getElementById('start');
+const runningControls = document.getElementById('runningControls');
+const pauseBtn = document.getElementById('pause');
+const resetBtn = document.getElementById('reset');
+const skipBtn = document.getElementById('skip');
+const digitsEl = document.getElementById('digits');
+const sessionLabel = document.getElementById('sessionLabel');
+const fg = document.getElementById('fg');
+const svgEl = document.querySelector('.ring-wrap svg'); // Get SVG element
+const bodyContainer = document.getElementById('body-container');
+const sessionsEl = document.getElementById('sessions');
+const metaEl = document.getElementById('meta');
+
+let isWork = true;
+let isRunning = false;
+let started = false;
+let intervalId = null;
+let totalSeconds = parseInt(workInput.value || 25) * 60;
+let remaining = totalSeconds;
+let sessions = 0;
+const RADIUS = 50;
+const CIRC = 2 * Math.PI * RADIUS;
+fg.style.strokeDasharray = CIRC;
+fg.style.strokeDashoffset = CIRC;
+
+/* View mode: 'both' | 'ring' | 'digits' */
+let viewMode = 'both';
+function setViewMode(mode){
+  viewMode = mode;
+  document.querySelectorAll('.toggle-btn').forEach(b=> b.classList.toggle('active', b.dataset.view === mode));
+  if(mode === 'ring') { digitsEl.style.opacity = 0; svgEl.style.opacity = 1; }
+  else if(mode === 'digits') { digitsEl.style.opacity = 1; svgEl.style.opacity = 0; }
+  else { digitsEl.style.opacity = 1; svgEl.style.opacity = 1; }
+}
+document.querySelectorAll('.toggle-btn').forEach(b => {
+  b.addEventListener('click', ()=> setViewMode(b.dataset.view));
+});
+// NEW: Click digits to hide ring
+digitsEl.addEventListener('click', () => {
+  setViewMode(viewMode === 'digits' ? 'both' : 'digits');
+});
+setViewMode('both');
+
+
+/* format time */
+function fmt(s){ const m = String(Math.floor(s/60)).padStart(2,'0'); const sec = String(s%60).padStart(2,'0'); return `${m}:${sec}`; }
+
+/* update UI */
+function updateUI(){
+  digitsEl.textContent = fmt(remaining);
+  sessionLabel.textContent = isWork ? 'WORK' : 'BREAK';
+  const pct = 1 - (remaining / totalSeconds || 0);
+  fg.style.transition = 'stroke-dashoffset 0.6s linear, filter 360ms ease';
+  fg.style.strokeDashoffset = `${Math.max(0, Math.min(CIRC, CIRC - (pct * CIRC)))}`;
+  fg.style.filter = isWork ? 'none' : 'grayscale(0.5) brightness(0.9)';
+  sessionsEl.textContent = `Sessions: ${sessions}`;
+  metaEl.textContent = isRunning ? (isWork ? 'Focused — keep going' : 'Break — relax') : (started ? 'Paused' : 'Press Space or Start');
+}
+
+/* hide inputs (setup -> running) - with ANIMATION */
+function enterRunningState(){
+  setupEl.classList.add('hidden');
+  startBtn.style.display = 'none';
+  runningControls.style.display = 'flex';
+  runningControls.classList.add('fade-in');
+  runningControls.addEventListener('animationend', () => runningControls.classList.remove('fade-in'), { once: true });
+  bodyContainer.classList.add('running');
+  started = true;
+  fg.animate([{ transform:'scale(1)'},{ transform:'scale(1.02)'},{ transform:'scale(1)'}], { duration:800, easing:'ease-in-out' });
+}
+
+/* show setup - with ANIMATION */
+function exitRunningState(){
+  setupEl.classList.remove('hidden');
+  runningControls.style.display = 'none';
+  startBtn.style.display = 'inline-block';
+  startBtn.classList.add('fade-in');
+  startBtn.addEventListener('animationend', () => startBtn.classList.remove('fade-in'), { once: true });
+  bodyContainer.classList.remove('running');
+  workInput.disabled = false; breakInput.disabled = false;
+}
+
+/* chime */
+let audioCtx;
+function chime(){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = audioCtx;
+    const t0 = ctx.currentTime;
+    const o1 = ctx.createOscillator(), g1 = ctx.createGain();
+    const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+    o1.type='sine'; o2.type='triangle';
+    o1.frequency.setValueAtTime(880, t0); o2.frequency.setValueAtTime(1318.5, t0);
+    g1.gain.setValueAtTime(0.0001, t0); g1.gain.exponentialRampToValueAtTime(0.16, t0+0.02); g1.gain.exponentialRampToValueAtTime(0.0001, t0+0.45);
+    g2.gain.setValueAtTime(0.0001, t0); g2.gain.exponentialRampToValueAtTime(0.08, t0+0.02); g2.gain.exponentialRampToValueAtTime(0.0001, t0+0.45);
+    o1.connect(g1); g1.connect(ctx.destination); o2.connect(g2); g2.connect(ctx.destination);
+    o1.start(t0); o2.start(t0); o1.stop(t0+0.5); o2.stop(t0+0.5);
+  }catch(e){ /* fail silently */ }
+}
+
+/* start */
+function startPomodoro(){
+  if(isRunning) return;
+  if(!started){
+    const w = Math.max(1, Math.min(180, parseInt(workInput.value) || 25));
+    const b = Math.max(1, Math.min(60, parseInt(breakInput.value) || 5));
+    workInput.value = w; breakInput.value = b;
+    totalSeconds = (isWork ? w : b) * 60;
+    remaining = totalSeconds;
+    enterRunningState();
+    workInput.disabled = true; breakInput.disabled = true;
+  }
+  isRunning = true;
+  intervalId = setInterval(()=>{
+    remaining--;
+    if(remaining <= 0){
+      clearInterval(intervalId);
+      isRunning = false;
+      if(isWork) sessions++;
+      chime();
+      try{ navigator.vibrate && navigator.vibrate(160); }catch(e){}
+      isWork = !isWork;
+      const nextMin = isWork ? parseInt(workInput.value) : parseInt(breakInput.value);
+      totalSeconds = Math.max(1, nextMin) * 60;
+      remaining = totalSeconds;
+      updateUI();
+      setTimeout(()=> {
+        startPomodoro();
+      }, 700);
+    } else {
+      updateUI();
+    }
+  }, 1000);
+  updateUI();
+}
+
+/* pause */
+function pausePomodoro(){
+  if(!isRunning) return;
+  clearInterval(intervalId);
+  isRunning = false;
+  updateUI();
+}
+
+/* reset */
+function resetPomodoro(){
+  clearInterval(intervalId);
+  isRunning = false;
+  started = false;
+  isWork = true;
+  sessions = 0;
+  totalSeconds = Math.max(1, Math.min(180, parseInt(workInput.value) || 25)) * 60;
+  remaining = totalSeconds;
+  updateUI();
+  exitRunningState();
+}
+
+/* skip current and go to next (treat as finish) */
+function skipPomodoro(){
+  clearInterval(intervalId);
+  isRunning = false;
+  if(isWork) sessions++;
+  isWork = !isWork;
+  const nextMin = isWork ? parseInt(workInput.value) : parseInt(breakInput.value);
+  totalSeconds = Math.max(1, nextMin) * 60;
+  remaining = totalSeconds;
+  updateUI();
+  setTimeout(()=> startPomodoro(), 300);
+}
+
+/* Bind buttons */
+startBtn.addEventListener('click', ()=> { startPomodoro(); });
+pauseBtn.addEventListener('click', ()=> {
+  if(isRunning){ pausePomodoro(); }
+  else { startPomodoro(); }
+});
+resetBtn.addEventListener('click', resetPomodoro);
+skipBtn.addEventListener('click', skipPomodoro);
+
+/* keyboard: Space toggles */
+window.addEventListener('keydown', (e)=> {
+  if(e.code === 'Space'){
+    e.preventDefault();
+    if(!isRunning) startPomodoro();
+    else pausePomodoro();
+  }
+});
+
+/* Update when user edits input (before started) */
+workInput.addEventListener('change', ()=>{
+  if(!started && isWork){
+    const w = Math.max(1, Math.min(180, parseInt(workInput.value) || 25));
+    workInput.value = w;
+    totalSeconds = w * 60;
+    remaining = totalSeconds;
+    updateUI();
+  }
+});
+breakInput.addEventListener('change', ()=>{
+  if(!started){
+    const b = Math.max(1, Math.min(60, parseInt(breakInput.value) || 5));
+    breakInput.value = b;
+    if(!isWork) {
+      totalSeconds = b * 60;
+      remaining = totalSeconds;
+      updateUI();
+    }
+  }
+});
+
+
+/* accessibility announcer */
+const sr = document.createElement('div');
+sr.setAttribute('aria-live','polite');
+sr.style.position='absolute'; sr.style.left='-9999px';
+document.body.appendChild(sr);
+let lastLabel = sessionLabel.textContent;
+setInterval(()=> {
+  if(sessionLabel.textContent !== lastLabel){
+    sr.textContent = sessionLabel.textContent + ' session starting';
+    lastLabel = sessionLabel.textContent;
+  }
+}, 500);
+
+/* initial UI render */
+updateUI();
+
+/* fluid initial animation when page loads */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const inner = document.getElementById('centerInner');
+  inner.animate([{ transform:'scale(.98)', opacity:0 }, { transform:'scale(1)', opacity:1 }], { duration:420, easing:'cubic-bezier(.2,.9,.3,1)' });
+});
+
+/* small safety: stop interval on page hide */
+document.addEventListener('visibilitychange', ()=> {
+  if(document.hidden && intervalId) { clearInterval(intervalId); }
+});
+
+/* End of script */
+</script>
+</body>
+</html>
