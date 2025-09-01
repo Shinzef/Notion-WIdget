@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Focus Dashboard — Pomodoro + Clock</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#0b0b0c;
+    --card:#111114;
+    --muted:#9aa3ad;
+    --accent:#7c5cff;
+    --accent-2:#00d4ff;
+    --glass: rgba(255,255,255,0.04);
+    --success:#4ade80;
+    --danger:#ff7b7b;
+  }
+
+  /* Basic Layout */
+  *{box-sizing:border-box}
+  html,body{height:100%; margin:0; font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 10% 10%, rgba(124,92,255,0.06), transparent 6%),
+      radial-gradient(800px 400px at 90% 90%, rgba(0,212,255,0.03), transparent 6%),
+      var(--bg);
+    color:#e6eef8;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    padding:28px;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    transition:background 300ms ease;
+  }
+
+  /* container */
+  .wrap{
+    width:100%;
+    max-width:920px;
+    display:grid;
+    grid-template-columns: 1fr 420px;
+    gap:22px;
+    align-items:start;
+  }
+
+  /* Clock card */
+  .clock-card{
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:16px;
+    padding:22px 24px;
+    box-shadow: 0 10px 30px rgba(2,6,23,0.6);
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    min-height:160px;
+    position:relative;
+    overflow:hidden;
+    border: 1px solid rgba(255,255,255,0.03);
+  }
+
+  .clock-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .clock-label{font-size:13px; color:var(--muted); font-weight:600; letter-spacing:0.8px}
+  .clock-time{
+    font-weight:700;
+    font-size:48px;
+    letter-spacing:1px;
+    margin-top:6px;
+  }
+  .clock-sub{
+    color:var(--muted);
+    font-size:13px;
+  }
+
+  /* Pomodoro card */
+  .pom-card{
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:16px;
+    padding:18px;
+    box-shadow: 0 10px 30px rgba(2,6,23,0.6);
+    border:1px solid rgba(255,255,255,0.03);
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    align-items:center;
+  }
+
+  .title-row{
+    width:100%;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+  }
+  .pom-title{font-weight:700; letter-spacing:0.6px}
+  .session-count{
+    font-size:13px;
+    color:var(--muted);
+  }
+
+  /* inputs area */
+  .inputs{
+    display:flex;
+    gap:10px;
+    width:100%;
+    justify-content:center;
+    transition: all 400ms cubic-bezier(.2,.9,.3,1);
+  }
+  .inputs.hidden{
+    opacity:0;
+    transform:translateY(10px) scale(0.98);
+    pointer-events:none;
+    height:0;
+    margin:0;
+    padding:0;
+  }
+  .field{
+    background:var(--glass);
+    border-radius:10px;
+    padding:10px 12px;
+    min-width:120px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    align-items:center;
+    border:1px solid rgba(255,255,255,0.02);
+  }
+  .field label{font-size:12px; color:var(--muted)}
+  .field input[type=number]{
+    width:84px;
+    background:transparent;
+    color:inherit;
+    border:none;
+    outline:none;
+    font-size:18px;
+    font-weight:600;
+    text-align:center;
+    -moz-appearance:textfield;
+  }
+  .field input::-webkit-outer-spin-button,
+  .field input::-webkit-inner-spin-button {-webkit-appearance:none;margin:0;}
+
+  /* timer display */
+  .timer-wrap{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    align-items:center;
+    width:100%;
+    padding:10px 6px 0 6px;
+  }
+  .session-badge{
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:1px;
+    padding:6px 10px;
+    border-radius:999px;
+    background:linear-gradient(90deg,var(--accent),var(--accent-2));
+    color:#06060a;
+    display:inline-block;
+    transform-origin:center;
+    transition:transform 220ms ease;
+  }
+  .session-badge.break{ background: linear-gradient(90deg,var(--danger),#ffb4b4); color:#fff }
+  .timer{
+    font-size:56px;
+    font-weight:800;
+    letter-spacing:1px;
+    margin-top:6px;
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .timer.running{
+    animation: pulse 1600ms infinite;
+  }
+  @keyframes pulse{
+    0%{ transform: scale(1) }
+    50%{ transform: scale(1.02) }
+    100%{ transform: scale(1) }
+  }
+
+  .controls{
+    display:flex;
+    gap:10px;
+    margin-top:8px;
+  }
+  button{
+    background:transparent;
+    border:1px solid rgba(255,255,255,0.06);
+    color:inherit;
+    padding:10px 14px;
+    border-radius:10px;
+    font-weight:700;
+    cursor:pointer;
+    transition:all 160ms ease;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  button.primary{
+    background: linear-gradient(90deg,var(--accent),var(--accent-2));
+    color:#030312;
+    border:none;
+    box-shadow: 0 6px 24px rgba(124,92,255,0.18);
+  }
+  button:active{ transform:translateY(1px) }
+
+  /* blur overlay when running */
+  .blur-overlay{
+    position:fixed;
+    left:0;top:0;right:0;bottom:0;
+    pointer-events:none;
+    backdrop-filter: blur(0px) saturate(1);
+    transition: backdrop-filter 420ms ease, background 420ms ease, opacity 420ms ease;
+    opacity:0;
+  }
+  .running-mode .blur-overlay{
+    opacity:0.14;
+    backdrop-filter: blur(6px) saturate(1.08);
+    background:linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.32));
+  }
+
+  /* responsive */
+  @media (max-width:880px){
+    .wrap{ grid-template-columns: 1fr; max-width:720px }
+    .pom-card{ order:-1 }
+  }
+</style>
+</head>
+<body>
+
+<div class="blur-overlay" aria-hidden="true"></div>
+
+<div class="wrap" role="main" aria-label="Focus dashboard">
+  <!-- LEFT: Clock + mini info -->
+  <div class="clock-card" aria-live="polite">
+    <div class="clock-top">
+      <div>
+        <div class="clock-label">LOCAL TIME</div>
+        <div class="clock-time" id="clock">00:00</div>
+        <div class="clock-sub" id="clockDate">—</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:13px; color:var(--muted); font-weight:700">FOCUS</div>
+        <div style="margin-top:6px; font-size:14px; color:var(--muted)">Keep it short: one main task</div>
+      </div>
+    </div>
+
+    <div style="margin-top:10px; color:var(--muted); font-size:13px">
+      Tip: Press <kbd style="padding:4px 8px;border-radius:6px;background:#0f1113;border:1px solid rgba(255,255,255,0.03)">Space</kbd> to Start / Pause.
+    </div>
+  </div>
+
+  <!-- RIGHT: Pomodoro -->
+  <div class="pom-card" id="pomCard">
+    <div class="title-row">
+      <div class="pom-title">Pomodoro</div>
+      <div class="session-count" id="sessionCount">Sessions done: 0</div>
+    </div>
+
+    <div class="inputs" id="inputsArea" aria-hidden="false">
+      <div class="field">
+        <label for="workTime">Work (min)</label>
+        <input id="workTime" type="number" min="1" max="180" value="25" />
+      </div>
+      <div class="field">
+        <label for="breakTime">Break (min)</label>
+        <input id="breakTime" type="number" min="1" max="60" value="5" />
+      </div>
+    </div>
+
+    <div class="timer-wrap">
+      <div id="sessionBadge" class="session-badge">WORK</div>
+      <div id="timerDisplay" class="timer">25:00</div>
+
+      <div class="controls" id="controlsRow">
+        <button id="startBtn" class="primary">Start</button>
+        <button id="pauseBtn">Pause</button>
+        <button id="resetBtn">Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // --- Clock ---
+  const clockEl = document.getElementById('clock');
+  const dateEl  = document.getElementById('clockDate');
+
+  function updateClock(){
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    const ss = String(now.getSeconds()).padStart(2,'0');
+    clockEl.textContent = `${hh}:${mm}:${ss}`;
+    dateEl.textContent = now.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // --- Pomodoro logic ---
+  const workInput = document.getElementById('workTime');
+  const breakInput = document.getElementById('breakTime');
+  const inputsArea = document.getElementById('inputsArea');
+  const sessionBadge = document.getElementById('sessionBadge');
+  const timerDisplay = document.getElementById('timerDisplay');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const sessionCountEl = document.getElementById('sessionCount');
+  const body = document.body;
+
+  let isRunning = false;
+  let isWork = true;
+  let intervalId = null;
+  let remainingSeconds = parseInt(workInput.value || 25)*60;
+  let sessionsDone = 0;
+  let wasStartedOnce = false;
+
+  function formatTime(sec){
+    const m = String(Math.floor(sec/60)).padStart(2,'0');
+    const s = String(sec%60).padStart(2,'0');
+    return `${m}:${s}`;
+  }
+
+  function updateUI(){
+    timerDisplay.textContent = formatTime(remainingSeconds);
+    timerDisplay.classList.toggle('running', isRunning);
+    sessionBadge.textContent = (isWork ? 'WORK' : 'BREAK');
+    sessionBadge.classList.toggle('break', !isWork);
+    sessionCountEl.textContent = `Sessions done: ${sessionsDone}`;
+  }
+
+  function hideInputs(){
+    inputsArea.classList.add('hidden');
+    inputsArea.setAttribute('aria-hidden','true');
+    // add running mode class to body for global blur/dim
+    body.classList.add('running-mode');
+    // animate session badge a little
+    sessionBadge.style.transform = 'scale(1.03)';
+    setTimeout(()=> sessionBadge.style.transform = '', 220);
+  }
+
+  function showInputs(){
+    inputsArea.classList.remove('hidden');
+    inputsArea.setAttribute('aria-hidden','false');
+    body.classList.remove('running-mode');
+  }
+
+  function startTimer(){
+    if (isRunning) return;
+    // If first start, ensure inputs are captured and hidden
+    if (!wasStartedOnce){
+      // sanitize inputs
+      const w = Math.max(1, Math.min(180, parseInt(workInput.value) || 25));
+      const b = Math.max(1, Math.min(60, parseInt(breakInput.value) || 5));
+      workInput.value = w;
+      breakInput.value = b;
+      remainingSeconds = (isWork ? w : b) * 60;
+      hideInputs();
+      wasStartedOnce = true;
+    }
+    isRunning = true;
+    // remove focus from buttons to prevent accidental keypresses
+    document.activeElement.blur();
+
+    intervalId = setInterval(()=>{
+      remainingSeconds--;
+      if (remainingSeconds <= 0){
+        // session finished — switch
+        clearInterval(intervalId);
+        isRunning = false;
+        // if a work session just finished, increment sessionsDone
+        if (isWork) sessionsDone++;
+        isWork = !isWork;
+        // set next duration from inputs (they're still present but disabled)
+        const next = isWork ? parseInt(workInput.value) : parseInt(breakInput.value);
+        remainingSeconds = Math.max(1, next) * 60;
+        // small visual flash
+        sessionBadge.style.transform = 'scale(1.06)';
+        setTimeout(()=> sessionBadge.style.transform='', 180);
+        updateUI();
+        // automatically start next session after a short delay
+        setTimeout(()=> {
+          // play a small notification (web) if allowed — fallback: vibrate
+          try{ navigator.vibrate && navigator.vibrate(120); } catch(e){}
+          startTimer();
+        }, 700);
+      }
+      updateUI();
+    }, 1000);
+
+    // disable inputs to avoid accidental edits
+    workInput.disabled = true;
+    breakInput.disabled = true;
+    startBtn.classList.remove('primary'); // change look: started
+    startBtn.textContent = 'Running';
+    startBtn.disabled = true;
+  }
+
+  function pauseTimer(){
+    if (!isRunning) return;
+    clearInterval(intervalId);
+    isRunning = false;
+    startBtn.classList.add('primary');
+    startBtn.textContent = 'Start';
+    startBtn.disabled = false;
+    // keep inputs hidden but disabled while paused
+    updateUI();
+  }
+
+  function resetTimer(){
+    clearInterval(intervalId);
+    isRunning = false;
+    isWork = true;
+    wasStartedOnce = false;
+    sessionsDone = 0;
+    // re-enable inputs
+    workInput.disabled = false;
+    breakInput.disabled = false;
+    // reset to input value (or default)
+    const w = Math.max(1, Math.min(180, parseInt(workInput.value) || 25));
+    remainingSeconds = w * 60;
+    startBtn.classList.add('primary');
+    startBtn.textContent = 'Start';
+    startBtn.disabled = false;
+    showInputs();
+    updateUI();
+  }
+
+  // UI bindings
+  startBtn.addEventListener('click', startTimer);
+  pauseBtn.addEventListener('click', pauseTimer);
+  resetBtn.addEventListener('click', resetTimer);
+
+  // keyboard: space toggles start/pause
+  window.addEventListener('keydown', (e)=>{
+    if (e.code === 'Space'){
+      e.preventDefault();
+      if (!isRunning) startTimer();
+      else pauseTimer();
+    }
+  });
+
+  // handle changes to inputs while not started
+  workInput.addEventListener('change', ()=>{
+    if (!wasStartedOnce){
+      const w = Math.max(1, Math.min(180, parseInt(workInput.value) || 25));
+      workInput.value = w;
+      remainingSeconds = w*60;
+      updateUI();
+    }
+  });
+  breakInput.addEventListener('change', ()=>{
+    if (!wasStartedOnce){
+      const b = Math.max(1, Math.min(60, parseInt(breakInput.value) || 5));
+      breakInput.value = b;
+      updateUI();
+    }
+  });
+
+  // initialize UI
+  updateUI();
+
+  // small accessibility: announce session changes (screen readers)
+  const srAnnounce = document.createElement('div');
+  srAnnounce.setAttribute('aria-live','polite');
+  srAnnounce.style.position='absolute';
+  srAnnounce.style.left='-9999px';
+  document.body.appendChild(srAnnounce);
+
+  // watch session changes to announce
+  let lastSessionLabel = sessionBadge.textContent;
+  setInterval(()=>{
+    if (sessionBadge.textContent !== lastSessionLabel){
+      srAnnounce.textContent = sessionBadge.textContent + ' session';
+      lastSessionLabel = sessionBadge.textContent;
+    }
+  }, 500);
+
+</script>
+</body>
+</html>
